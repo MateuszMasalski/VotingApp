@@ -1,5 +1,7 @@
 package com.amsort.server;
 
+import com.amsort.Vote;
+
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
@@ -7,12 +9,16 @@ import java.io.PrintWriter;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 
 public class Server {
+    private static final int WAIT_FOR_VOTES = 45;
     private static final int PORT_NUMBER = 8888;
     private static final List<ClientHandler> clients = new ArrayList<>();
+    private static final Set<Vote> activeVotes = new HashSet<>();
 
     /**
      * It starts a server allowing clients to connect
@@ -48,7 +54,7 @@ public class Server {
         public void run() {
             String clientData;
             while (true) {
-                try  {
+                try {
                     clientData = in.readLine();
                     if (clientData != null) {
                         String[] command = clientData.split(" ");
@@ -62,11 +68,11 @@ public class Server {
 
         }
 
-        public ClientHandler(Socket socket) {
+        public ClientHandler(final Socket socket) {
             clientSocket = socket;
             try {
                 in = new BufferedReader(new InputStreamReader(clientSocket.getInputStream()));
-                out = new PrintWriter(clientSocket.getOutputStream(),true);
+                out = new PrintWriter(clientSocket.getOutputStream(), true);
             } catch (IOException e) {
                 e.printStackTrace();
             }
@@ -78,7 +84,7 @@ public class Server {
          *
          * @param command array of command
          */
-        private void recognizeCommand(String[] command) {
+        private void recognizeCommand(final String[] command) {
             switch (command[0].toUpperCase()) {
                 case "PING":
                     sendMessage("PONG");
@@ -114,7 +120,7 @@ public class Server {
                     .stream()
                     .map(client -> client.clientName.toUpperCase())
                     .anyMatch(s -> s.equals(potentialName));
-            if(!isUniqe){
+            if (!isUniqe) {
                 this.clientName = name;
                 sendMessage("Your is set to: " + this.clientName);
             } else {
@@ -123,16 +129,36 @@ public class Server {
         }
 
 
-        private void createVote(String voteName, String initialVote, String content) {
-            //TODO do clas vote
+        private void createVote(final String voteName, final String initialVote, final String content) {
+
+            if (!initialVote.equalsIgnoreCase("Y") && !initialVote.equalsIgnoreCase("N")) {
+                sendNOR("Invalid vot, pool not created");
+                return;
+            }
+            Vote vote = new Vote(voteName, initialVote, content);
+
+            if (!activeVotes.add(vote)) {
+                sendNOR("This vote is active");
+                return;
+            }
+            sendNew(vote.getVoteName(), vote.getVoteContent());
         }
 
-        private void sendNOR(String msg) {
+        private void sendNew(final String voteName, final String voteContent) {
+            final String msg = "NEW " + this.clientName + " " + voteName + " " + voteContent;
+            sendToAllMessage(msg);
+        }
+
+        private void sendToAllMessage(final String msg) {
+            clients.forEach(c -> c.sendMessage(msg));
+        }
+
+        private void sendNOR(final String msg) {
             sendMessage("NOR " + msg);
         }
 
-        private void sendMessage(String message) {
-                out.println(message);
+        private void sendMessage(final String message) {
+            out.println(message);
         }
 
     }
