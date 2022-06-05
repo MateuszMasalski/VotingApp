@@ -114,12 +114,17 @@ public class Server {
                     setClientName(command[1]);
                     break;
                 case "NEW":
-                    if (command.length != 4) {
+                    if (command.length < 4) {
                         sendNOK("invalid syntax, usage NEW voteName initial vote(Y/N) content of the vote");
                         break;
                     }
-
-                    createVote(command[1], command[2], command[3]);
+                    StringBuilder voteContent = new StringBuilder();
+                    for(int i = 3; i < command.length; i++){
+                        voteContent.append(command[i]);
+                        if(i != command.length-1)
+                            voteContent.append(" ");
+                    }
+                    createVote(command[1], command[2], voteContent.toString());
                     break;
                 case "VOTE":
                     if (command.length != 3) {
@@ -179,10 +184,10 @@ public class Server {
             }
         }
 
-
         private void createVote(final String voteName, final String initialVote, final String content) {
             if(numberOfNamedClients < MINIMAL_NUMBER_OF_CLIENTS){
                 sendNOK("Minimal number of clients required to start a vote is " + MINIMAL_NUMBER_OF_CLIENTS);
+                return;
             }
             if (!initialVote.equalsIgnoreCase("Y") && !initialVote.equalsIgnoreCase("N")) {
                 sendNOK("Invalid vot, pool not created");
