@@ -21,7 +21,7 @@ public class Vote {
             makeVote(initialVote);
     }
 
-    private void makeVote(String vote) {
+    public void makeVote(String vote) {
         if(vote.equalsIgnoreCase("Y"))
             yesVotes++;
         else
@@ -33,6 +33,10 @@ public class Vote {
         if(yesVotes > noVotes)
             return "Y";
         return "N";
+    }
+
+    public int getNumberOfVotes(){
+        return  yesVotes + noVotes;
     }
 
     @Override
