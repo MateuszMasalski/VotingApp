@@ -11,11 +11,12 @@ import java.net.Socket;
 import java.util.*;
 
 
+
 public class Server {
     /**
      * how many second should Server wait for votes
      */
-    private static final int WAIT_FOR_VOTES = 45;
+    private static final int WAIT_FOR_VOTES = 15;
     /**
      * how many second should Server wait for message from client
      * after that time client gets disconnected
@@ -23,10 +24,15 @@ public class Server {
     private static final int INACTIVE_TIME = 60;
     private static final int PORT_NUMBER = 8888;
     private static final int MINIMAL_NUMBER_OF_CLIENTS = 3;
+    /**
+     * list of clients
+     */
     private static final List<ClientHandler> clients = new ArrayList<>();
-    private static final Set<Vote> activeVotes = new HashSet<>();
-    private VoteTerminator voteTerminator;
-    private int numberOfNamedClients;
+    /**
+     * list of votes, it contains list of client that didn't vote
+     */
+    private static final Map<Vote,List<ClientHandler>> votes = new HashMap<>();
+    private int numberOfNamedClients = 0;
 
     /**
      * It starts a server allowing clients to connect
@@ -41,7 +47,6 @@ public class Server {
                 ClientHandler client = new ClientHandler(socket);
                 clients.add(client);
                 client.start();
-
             }
         } catch (IOException e) {
             if (clients.isEmpty())
@@ -71,7 +76,8 @@ public class Server {
                     }
                 } catch (IOException e) {
                     System.out.println("Client disconnected");
-                    numberOfNamedClients--;
+                    if(!this.clientName.equals(""))
+                        numberOfNamedClients--;
                     clients.remove(this); //remove client from client list
                     break; //finishing run method,
                 }
@@ -131,6 +137,7 @@ public class Server {
                         sendNOK("invalid syntax, usage VOTE voteName Y/N");
                     }
                     vote(command[1], command[2]);
+                    break;
                 default:
                     sendNOK("there is such command as " + command[0] + " available commands : PING, NODE, VOTE, NEW");
             }
@@ -146,11 +153,18 @@ public class Server {
                 sendNOK("There is no vote for " + voteName);
                 return;
             }
+            List<ClientHandler> clientsToVote = votes.get(vote);
+            if(!clientsToVote.contains(this)){
+                sendNOK("You have already voted in this pool");
+                return;
+            }
+            clientsToVote.remove(this);
             vote.makeVote(clientVote);
             sendVOTE(vote.getVoteName(),this.clientName, clientVote);
-            if(vote.getNumberOfVotes() == clients.size()){
+
+            if(clientsToVote.isEmpty())
                 terminateVote(vote);
-            }
+
         }
 
         private void sendVOTE(String voteName, String clientName, String clientVote) {
@@ -158,7 +172,7 @@ public class Server {
         }
 
         private Vote findVoteByName(final String voteName) {
-            for(Vote vote : activeVotes){
+            for(Vote vote : votes.keySet()){
                 if(vote.getVoteName().equalsIgnoreCase(voteName))
                     return vote;
             }
@@ -193,30 +207,33 @@ public class Server {
                 sendNOK("Invalid vot, pool not created");
                 return;
             }
-            Vote vote = new Vote(voteName, initialVote, content);
-            if (!activeVotes.add(vote)) {
-                sendNOK("Vote for " +vote.getVoteName()+ " is active");
+            Vote vote = new Vote(voteName, initialVote, content,clients);
+            if (votes.containsKey(vote)) {
+                sendNOK("Vote for " +vote.getVoteName()+ " is already active");
                 return;
             }
+            List<ClientHandler> clientsToVote = new ArrayList<>(clients);
+            clientsToVote.remove(this);
+            votes.put(vote,clientsToVote);
             sendNew(vote.getVoteName(), vote.getVoteContent());
-            voteTerminator = new VoteTerminator(vote,this);
+            VoteTerminator voteTerminator = new VoteTerminator(vote, this);
             terminate.schedule(voteTerminator,WAIT_FOR_VOTES * 1000);
         }
 
 
         /**
-         * check if vote is still active, if yes remove it from {@link Server#activeVotes}
+         * check if vote is still active, if yes remove it from {@link Server#votes}
          * @param vote vot to terminate
          */
-        public synchronized void terminateVote(Vote vote){
-            if(!activeVotes.contains(vote))
+        public void terminateVote(Vote vote){
+            if(!votes.containsKey(vote))
                 return;
-
-            voteTerminator.cancel();
-            terminate.purge();
-            String voteResult = vote.getResult();
-            activeVotes.remove(vote);
-            sendResult(voteResult, vote);
+            synchronized (this) {
+                String voteResult = vote.getResult();
+                votes.remove(vote);
+                System.out.println("Vote " + vote.getVoteName() + " terminated");
+                sendResult(voteResult, vote);
+            }
         }
 
         private void sendNew(final String voteName, final String voteContent) {

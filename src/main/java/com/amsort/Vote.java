@@ -1,23 +1,32 @@
 package com.amsort;
 
+import com.amsort.server.Server;
+
+import java.util.List;
+
 public class Vote {
     private final String voteName;
     private final String voteContent;
     private int yesVotes = 0;
     private int noVotes = 0;
+    private final List<Server.ClientHandler> eligibleClients;
 
     public String getVoteName() {
         return voteName;
+    }
+
+    public List<Server.ClientHandler> getEligibleClients() {
+        return eligibleClients;
     }
 
     public String getVoteContent() {
         return voteContent;
     }
 
-    public Vote (String voteName, String initialVote, String voteContent){
+    public Vote (String voteName, String initialVote, String voteContent, List<Server.ClientHandler> eligibleClients ){
             this.voteName = voteName;
             this.voteContent = voteContent;
-
+            this.eligibleClients = eligibleClients;
             makeVote(initialVote);
     }
 
