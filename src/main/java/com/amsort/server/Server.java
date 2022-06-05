@@ -20,7 +20,7 @@ public class Server {
      * how many second should Server wait for message from client
      * after that time client gets disconnected
      */
-    private static final int INACTIVE_TIME = 15;
+    private static final int INACTIVE_TIME = 60;
     private static final int PORT_NUMBER = 8888;
     private static final int MINIMAL_NUMBER_OF_CLIENTS = 3;
     private static final List<ClientHandler> clients = new ArrayList<>();
@@ -63,7 +63,7 @@ public class Server {
         public void run() {
             while (true) {
                 try {
-                   clientSocket.setSoTimeout(5*1000);
+                   clientSocket.setSoTimeout(INACTIVE_TIME*1000);
                    String clientData = in.readLine();
                     if (clientData != null) {
                         String[] command = clientData.split(" ");
@@ -172,7 +172,7 @@ public class Server {
                     .anyMatch(s -> s.equals(potentialName));
             if (!isUniqe) {
                 this.clientName = name;
-                sendMessage("Your is set to: " + this.clientName);
+                sendMessage("Your name is set to: " + this.clientName);
                 numberOfNamedClients++;
             } else {
                 sendNOK("Name: " + name + " is already used, pick another");
@@ -190,7 +190,7 @@ public class Server {
             }
             Vote vote = new Vote(voteName, initialVote, content);
             if (!activeVotes.add(vote)) {
-                sendNOK("This vote is active");
+                sendNOK("Vote for " +vote.getVoteName()+ " is active");
                 return;
             }
             sendNew(vote.getVoteName(), vote.getVoteContent());
